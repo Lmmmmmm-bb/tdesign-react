@@ -9,6 +9,7 @@ import {
   CloseCircleFilledIcon as TdCloseCircleFilledIcon,
   ErrorCircleFilledIcon as TdErrorCircleFilledIcon,
 } from 'tdesign-icons-react';
+import isEqual from 'lodash/isEqual';
 import { calcFieldValue } from './utils';
 import useConfig from '../hooks/useConfig';
 import useGlobalIcon from '../hooks/useGlobalIcon';
@@ -25,13 +26,14 @@ import { HOOK_MARK } from './hooks/useForm';
 import { validate as validateModal, parseMessage } from './formModel';
 import { useFormContext, useFormListContext } from './FormContext';
 import useFormItemStyle from './hooks/useFormItemStyle';
+import useFormItemInitialData, { ctrlKeyMap } from './hooks/useFormItemInitialData';
 import { formItemDefaultProps } from './defaultProps';
-import { ctrlKeyMap, getDefaultInitialData } from './useInitialData';
 import { ValidateStatus } from './const';
 import useDefaultProps from '../hooks/useDefaultProps';
+import { useLocaleReceiver } from '../locale/LocalReceiver';
 
 export interface FormItemProps extends TdFormItemProps, StyledProps {
-  children?: React.ReactNode | ((form: FormInstanceFunctions) => React.ReactElement);
+  children?: React.ReactNode | React.ReactNode[] | ((form: FormInstanceFunctions) => React.ReactElement);
 }
 
 export interface FormItemInstance {
@@ -44,12 +46,14 @@ export interface FormItemInstance {
   validate?: Function;
   resetField?: Function;
   setValidateMessage?: Function;
+  getValidateMessage?: Function;
   resetValidate?: Function;
   validateOnly?: Function;
   isFormList?: boolean;
 }
 
 const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref) => {
+  const [locale, t] = useLocaleReceiver('form');
   const { classPrefix, form: globalFormConfig } = useConfig();
   const { CheckCircleFilledIcon, CloseCircleFilledIcon, ErrorCircleFilledIcon } = useGlobalIcon({
     CheckCircleFilledIcon: TdCheckCircleFilledIcon,
@@ -60,7 +64,6 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     form,
     colon,
     layout,
-    initialData: FromContextInitialData,
     requiredMark: requiredMarkFromContext,
     labelAlign: labelAlignFromContext,
     labelWidth: labelWidthFromContext,
@@ -74,12 +77,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     onFormItemValueChange,
   } = useFormContext();
 
-  const {
-    name: formListName,
-    rules: formListRules,
-    formListMapRef,
-    initialData: FormListInitialData,
-  } = useFormListContext();
+  const { name: formListName, rules: formListRules, formListMapRef } = useFormListContext();
 
   const props = useDefaultProps<FormItemProps>(originalProps, formItemDefaultProps);
 
@@ -103,6 +101,8 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     requiredMark = requiredMarkFromContext,
   } = props;
 
+  const { getDefaultInitialData } = useFormItemInitialData(name);
+
   const [, forceUpdate] = useState({}); // custom render state
   const [freeShowErrorMessage, setFreeShowErrorMessage] = useState(undefined);
   const [errorList, setErrorList] = useState([]);
@@ -110,14 +110,10 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
   const [verifyStatus, setVerifyStatus] = useState('validating');
   const [resetValidating, setResetValidating] = useState(false);
   const [needResetField, setNeedResetField] = useState(false);
-  const [formValue, setFormValue] = useState(
+  const [formValue, setFormValue] = useState(() =>
     getDefaultInitialData({
-      name,
-      formListName,
       children,
       initialData,
-      FromContextInitialData,
-      FormListInitialData,
     }),
   );
 
@@ -131,7 +127,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
   const snakeName = []
     .concat(formListName, name)
     .filter((item) => item !== undefined)
-    .join('_'); // 转化 name
+    .toString(); // 转化 name
 
   const errorMessages = useMemo(() => errorMessage ?? globalFormConfig.errorMessage, [errorMessage, globalFormConfig]);
 
@@ -153,7 +149,6 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
       successList,
       layout,
       verifyStatus,
-      colon,
       label,
       labelWidth,
       labelAlign,
@@ -171,7 +166,9 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     isUpdatedRef.current = true;
     shouldValidate.current = validate;
     valueRef.current = newVal;
-    setFormValue(newVal);
+    if (!isEqual(formValue, newVal)) {
+      setFormValue(newVal);
+    }
   };
 
   // 初始化 rules，最终以 formItem 上优先级最高
@@ -324,12 +321,8 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
   function getResetValue(resetType: string): ValueType {
     if (resetType === 'initial') {
       return getDefaultInitialData({
-        name,
-        formListName,
         children,
         initialData,
-        FromContextInitialData,
-        FormListInitialData,
       });
     }
 
@@ -377,7 +370,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     }
     if (typeof value !== 'undefined') {
       // 手动设置 status 则不需要校验 交给用户判断
-      updateFormValue(value, typeof status === 'undefined' ? true : false);
+      updateFormValue(value, typeof status === 'undefined' ? true : false, true);
     }
   }
 
@@ -391,6 +384,10 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     setErrorList(validateMessage);
     const status = validateMessage?.[0]?.type || ValidateStatus.ERROR;
     setVerifyStatus(status);
+  }
+
+  function getValidateMessage() {
+    return errorList;
   }
 
   useEffect(() => {
@@ -429,7 +426,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
       formMapRef.current.delete(name);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, formListName]);
+  }, [snakeName, formListName]);
 
   useEffect(() => {
     // value 变化通知 watch 事件
@@ -456,7 +453,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
 
     filterRules.length && validate('change');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formValue]);
+  }, [formValue, snakeName]);
 
   // 暴露 ref 实例方法
   const instance: FormItemInstance = {
@@ -464,12 +461,13 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
     value: formValue,
     isUpdated: isUpdatedRef.current,
     getValue: () => valueRef.current,
-    setValue: (newVal: any) => updateFormValue(newVal),
+    setValue: (newVal: any) => updateFormValue(newVal, true, true),
     setField,
     validate,
     validateOnly,
     resetField,
     setValidateMessage,
+    getValidateMessage,
     resetValidate: resetHandler,
   };
   useImperativeHandle(ref, (): FormItemInstance => instance);
@@ -483,6 +481,7 @@ const FormItem = forwardRef<FormItemInstance, FormItemProps>((originalProps, ref
       {label && (
         <div className={formItemLabelClass} style={labelStyle}>
           <label htmlFor={props?.for}>{label}</label>
+          {colon && t(locale.colonText)}
         </div>
       )}
       <div className={contentClass()} style={contentStyle}>

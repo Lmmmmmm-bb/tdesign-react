@@ -1,4 +1,4 @@
-import React, { CSSProperties, forwardRef, useMemo } from 'react';
+import React, { CSSProperties, ReactNode, useMemo } from 'react';
 import classNames from 'classnames';
 import { isFragment } from 'react-is';
 import useConfig from '../hooks/useConfig';
@@ -6,6 +6,7 @@ import { TdSpaceProps } from './type';
 import { StyledProps } from '../common';
 import { spaceDefaultProps } from './defaultProps';
 import { getFlexGapPolyFill } from '../_common/js/utils/helper';
+import useDefaultProps from '../hooks/useDefaultProps';
 
 // export for test
 export const SizeMap = { small: '8px', medium: '16px', large: '24px' };
@@ -37,19 +38,26 @@ const toArray = (children: React.ReactNode): React.ReactElement[] => {
   return ret;
 };
 
-const Space = forwardRef((props: SpaceProps, ref: React.Ref<HTMLDivElement>) => {
-  const { className, style, align, direction, size, breakLine, separator } = props;
+const EMPTY_NODE: ReactNode[] = ['', false, null, undefined];
+
+const Space = React.forwardRef<HTMLDivElement, SpaceProps>((originalProps, ref) => {
+  const props = useDefaultProps<SpaceProps>(originalProps, spaceDefaultProps);
+  const { className, style, align, direction, size, breakLine, separator, forceFlexGapPolyfill } = props;
   const { classPrefix } = useConfig();
 
-  const needPolyfill = Boolean(props.forceFlexGapPolyfill || defaultNeedPolyfill);
+  const needPolyfill = Boolean(forceFlexGapPolyfill || defaultNeedPolyfill);
 
-  const renderStyle = useMemo(() => {
+  const renderStyle = useMemo<React.CSSProperties>(() => {
     let renderGap = '';
     if (Array.isArray(size)) {
       renderGap = size
         .map((s) => {
-          if (typeof s === 'number') return `${s}px`;
-          if (typeof s === 'string') return SizeMap[s] || s;
+          if (typeof s === 'number') {
+            return `${s}px`;
+          }
+          if (typeof s === 'string') {
+            return SizeMap[s] || s;
+          }
           return s;
         })
         .join(' ');
@@ -68,9 +76,9 @@ const Space = forwardRef((props: SpaceProps, ref: React.Ref<HTMLDivElement>) => 
       tStyle.gap = renderGap;
     }
     return tStyle;
-  }, [style, size, needPolyfill]) as React.CSSProperties;
+  }, [style, size, needPolyfill]);
 
-  function renderChildren() {
+  const childrenNode = React.useMemo<React.ReactNode[]>(() => {
     const children = toArray(props.children);
     const childCount = React.Children.count(children);
     return React.Children.map(children, (child, index) => {
@@ -78,12 +86,12 @@ const Space = forwardRef((props: SpaceProps, ref: React.Ref<HTMLDivElement>) => 
       const showSeparator = index + 1 !== childCount && separator;
       return (
         <>
-          <div className={`${classPrefix}-space-item`}>{child}</div>
+          {EMPTY_NODE.includes(child) ? null : <div className={`${classPrefix}-space-item`}>{child}</div>}
           {showSeparator && <div className={`${classPrefix}-space-item-separator`}>{separator}</div>}
         </>
       );
     });
-  }
+  }, [props.children, classPrefix, separator]);
 
   return (
     <div
@@ -96,12 +104,11 @@ const Space = forwardRef((props: SpaceProps, ref: React.Ref<HTMLDivElement>) => 
         [`${classPrefix}-space--polyfill`]: needPolyfill,
       })}
     >
-      {renderChildren()}
+      {childrenNode}
     </div>
   );
 });
 
 Space.displayName = 'Space';
-Space.defaultProps = spaceDefaultProps;
 
 export default Space;

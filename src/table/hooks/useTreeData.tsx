@@ -19,8 +19,8 @@ export interface UseSwapParams<T> extends SwapParams<T> {
 }
 
 export default function useTreeData(props: TdEnhancedTableProps) {
-  const { data, columns, tree, rowKey, treeExpandAndFoldIcon } = props;
-  const [store] = useState(new TableTreeStore() as InstanceType<typeof TableTreeStore>);
+  const { data, columns, tree, rowKey, treeExpandAndFoldIcon, expandedTreeNodes } = props;
+  const [store] = useState(() => new TableTreeStore() as InstanceType<typeof TableTreeStore>);
   const [treeNodeCol, setTreeNodeCol] = useState<PrimaryTableCol>(() => getTreeNodeColumnCol());
   const [dataSource, setDataSource] = useState<TdEnhancedTableProps['data']>(data || []);
   const { tableTreeClasses } = useClassName();
@@ -70,7 +70,7 @@ export default function useTreeData(props: TdEnhancedTableProps) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data],
+    [data, expandedTreeNodes],
   );
 
   useEffect(
@@ -88,7 +88,7 @@ export default function useTreeData(props: TdEnhancedTableProps) {
     const defaultNeedExpand = Boolean(!isDefaultExpandedTreeNodesExecute && defaultExpandedTreeNodes?.length);
     const needExpandAll = Boolean(tree?.defaultExpandAll && !isDefaultExpandAllExecute);
     if ((tExpandedTreeNode?.length && !!(expandedTreeNodes || defaultNeedExpand)) || needExpandAll) {
-      updateExpandOnDataChange(data);
+      updateExpandOnDataChange([...data]);
       setIsDefaultExpandedTreeNodesExecute(true);
     } else {
       setDataSource([...data]);

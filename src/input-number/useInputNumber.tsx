@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import classNames from 'classnames';
 import useConfig from '../hooks/useConfig';
 import useControlled from '../hooks/useControlled';
-import useCommonClassName from '../_util/useCommonClassName';
+import useCommonClassName from '../hooks/useCommonClassName';
 import { InputNumberValue, TdInputNumberProps } from './type';
 // 计算逻辑，统一到 common 中，方便各框架复用（如超过 16 位的大数处理）
 import {
@@ -160,7 +160,7 @@ export default function useInputNumber<T extends InputNumberValue = InputNumberV
   };
 
   const handleBlur = (value: string, ctx: { e: React.FocusEvent<HTMLDivElement, Element> }) => {
-    if (!props.allowInputOverLimit && value) {
+    if (!props.allowInputOverLimit && value !== undefined) {
       const r = getMaxOrMinValidateResult({
         value: tValue,
         largeNumber,

@@ -4,7 +4,7 @@ import { TdCardProps } from './type';
 import Loading from '../loading';
 import { StyledProps } from '../common';
 import useConfig from '../hooks/useConfig';
-import useCommonClassName from '../_util/useCommonClassName';
+import useCommonClassName from '../hooks/useCommonClassName';
 import { cardDefaultProps } from './defaultProps';
 import useDefaultProps from '../hooks/useDefaultProps';
 
@@ -31,6 +31,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>((props, ref) => {
     title,
     theme,
     status,
+    loadingProps,
   } = useDefaultProps<CardProps>(props, cardDefaultProps);
 
   const { classPrefix } = useConfig();
@@ -132,15 +133,32 @@ const Card = forwardRef<HTMLDivElement, CardProps>((props, ref) => {
   );
 
   const card = (
-    <div ref={ref} className={cardClass} style={style}>
+    <>
       {showHeader ? renderHeader() : null}
       {renderCover}
       {renderChildren}
       {renderFooter}
-    </div>
+    </>
   );
 
-  return loading ? <Loading>{card}</Loading> : card;
+  let childrenNode: React.ReactNode = null;
+  if (!Reflect.has(props, 'loading')) {
+    childrenNode = React.cloneElement(card, { style });
+  } else if (React.isValidElement(loading)) {
+    childrenNode = React.cloneElement(loading, null, card);
+  } else {
+    childrenNode = (
+      <Loading {...loadingProps} loading={!!loading}>
+        {card}
+      </Loading>
+    );
+  }
+
+  return (
+    <div ref={ref} className={cardClass} style={style}>
+      {childrenNode}
+    </div>
+  );
 });
 
 Card.displayName = 'Card';

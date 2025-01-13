@@ -1,14 +1,18 @@
 import React, { forwardRef } from 'react';
 import classNames from 'classnames';
+import isFunction from 'lodash/isFunction';
 import useConfig from '../../hooks/useConfig';
 import { StyledProps } from '../../common';
 import PanelContent from './PanelContent';
 import ExtraContent from './ExtraContent';
-import { TdDateRangePickerProps } from '../type';
-import type { TdTimePickerProps } from '../../time-picker';
 import { getDefaultFormat, parseToDayjs } from '../../_common/js/date-picker/format';
 import useTableData from '../hooks/useTableData';
 import useDisableDate from '../hooks/useDisableDate';
+import useDefaultProps from '../../hooks/useDefaultProps';
+import { parseToDateTime } from '../utils';
+
+import type { TdDateRangePickerProps } from '../type';
+import type { TdTimePickerProps } from '../../time-picker';
 
 export interface RangePanelProps extends TdDateRangePickerProps, StyledProps {
   hoverValue?: string[];
@@ -19,6 +23,7 @@ export interface RangePanelProps extends TdDateRangePickerProps, StyledProps {
   year?: number[];
   month?: number[];
   time?: string[];
+  cancelRangeSelectLimit?: boolean;
   onClick?: (context: { e: React.MouseEvent<HTMLDivElement> }) => void;
   onCellClick?: (date: Date, context: { e: React.MouseEvent<HTMLDivElement>; partial: 'start' | 'end' }) => void;
   onCellMouseEnter?: (date: Date, context: { partial: 'start' | 'end' }) => void;
@@ -31,9 +36,16 @@ export interface RangePanelProps extends TdDateRangePickerProps, StyledProps {
   onTimePickerChange?: TdTimePickerProps['onChange'];
 }
 
-const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
+const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((originalProps, ref) => {
   const { classPrefix, datePicker: globalDatePickerConfig } = useConfig();
   const panelName = `${classPrefix}-date-range-picker__panel`;
+  const props = useDefaultProps<RangePanelProps>(originalProps, {
+    mode: 'date',
+    panelPreselection: true,
+    enableTimePicker: false,
+    presetsPlacement: 'bottom',
+    needConfirm: true,
+  });
   const {
     value = [],
     hoverValue = [],
@@ -44,7 +56,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
     disableDate: disableDateFromProps,
     firstDayOfWeek = globalDatePickerConfig.firstDayOfWeek,
     isFirstValueSelected,
-
+    needConfirm,
     style,
     className,
     activeIndex,
@@ -52,9 +64,11 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
     month,
     time = [],
     panelPreselection,
+    onPresetClick,
+    cancelRangeSelectLimit,
     onClick,
     onConfirmClick,
-    onPresetClick,
+    disableTime,
   } = props;
 
   const { format } = getDefaultFormat({
@@ -77,6 +91,18 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
         : undefined,
   });
 
+  const disableTimeOptions: TdTimePickerProps['disableTime'] = (h, m, s, ms) => {
+    if (!isFunction(disableTime)) {
+      return {};
+    }
+
+    const [startTime, endTime] = value || [];
+
+    return disableTime([parseToDateTime(startTime, format), parseToDateTime(endTime, format, [h, m, s, ms])], {
+      partial: activeIndex === 0 ? 'start' : 'end',
+    });
+  };
+
   const [startYear, endYear] = year;
   const [startMonth, endMonth] = month;
 
@@ -93,6 +119,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
     month: startMonth,
     mode,
     firstDayOfWeek,
+    cancelRangeSelectLimit,
     ...disableDateOptions,
   });
   const endTableData = useTableData({
@@ -105,6 +132,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
     month: endMonth,
     mode,
     firstDayOfWeek,
+    cancelRangeSelectLimit,
     ...disableDateOptions,
   });
 
@@ -115,7 +143,10 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
 
     popupVisible: props.popupVisible,
     enableTimePicker: props.enableTimePicker,
-    timePickerProps: props.timePickerProps,
+    timePickerProps: {
+      disableTime: disableTimeOptions,
+      ...props.timePickerProps,
+    },
     onMonthChange: props.onMonthChange,
     onYearChange: props.onYearChange,
     onJumperClick: props.onJumperClick,
@@ -142,6 +173,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
           onPresetClick={onPresetClick}
           onConfirmClick={onConfirmClick}
           presetsPlacement={presetsPlacement}
+          needConfirm={needConfirm}
         />
       ) : null}
       <div className={`${panelName}-content-wrapper`}>
@@ -152,7 +184,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
               partial={'start'}
               year={startYear}
               month={startMonth}
-              time={time[0]}
+              time={time[activeIndex]}
               tableData={startTableData}
               value={value}
               {...panelContentProps}
@@ -162,7 +194,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
               partial={'end'}
               year={endYear}
               month={endMonth}
-              time={time[1]}
+              time={time[activeIndex]}
               value={value}
               tableData={endTableData}
               {...panelContentProps}
@@ -189,6 +221,7 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
           onPresetClick={onPresetClick}
           onConfirmClick={onConfirmClick}
           presetsPlacement={presetsPlacement}
+          needConfirm={needConfirm}
         />
       ) : null}
     </div>
@@ -196,11 +229,5 @@ const RangePanel = forwardRef<HTMLDivElement, RangePanelProps>((props, ref) => {
 });
 
 RangePanel.displayName = 'RangePanel';
-RangePanel.defaultProps = {
-  mode: 'date',
-  panelPreselection: true,
-  enableTimePicker: false,
-  presetsPlacement: 'bottom',
-};
 
 export default RangePanel;

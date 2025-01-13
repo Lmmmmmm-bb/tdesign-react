@@ -25,16 +25,29 @@ export interface ImageCardUploadProps extends CommonDisplayFileProps {
   uploadFiles?: (toFiles?: UploadFile[]) => void;
   cancelUpload?: (context: { e: MouseEvent<HTMLElement>; file: UploadFile }) => void;
   onPreview?: TdUploadProps['onPreview'];
+  showImageFileName?: boolean;
+  imageProps?: TdUploadProps['imageProps'];
 }
 
 const ImageCard = (props: ImageCardUploadProps) => {
-  const { displayFiles, locale, classPrefix, multiple, max = 0, onRemove, disabled, fileListDisplay } = props;
+  const {
+    displayFiles,
+    locale,
+    classPrefix,
+    multiple,
+    max = 0,
+    onRemove,
+    disabled,
+    fileListDisplay,
+    imageProps = {},
+  } = props;
   const { BrowseIcon, DeleteIcon, AddIcon, ErrorCircleFilledIcon } = useGlobalIcon({
     AddIcon: TdAddIcon,
     BrowseIcon: TdBrowseIcon,
     DeleteIcon: TdDeleteIcon,
     ErrorCircleFilledIcon: TdErrorCircleFilledIcon,
   });
+  const { className: imageClassName, ...restImageProps } = imageProps;
 
   const showTrigger = React.useMemo(() => {
     if (multiple) {
@@ -45,7 +58,12 @@ const ImageCard = (props: ImageCardUploadProps) => {
 
   const renderMainContent = (file: UploadFile, index: number) => (
     <div className={`${classPrefix}-upload__card-content ${classPrefix}-upload__card-box`}>
-      <Image className={`${classPrefix}-upload__card-image`} src={file.url || file.raw} error="" loading="" />
+      <Image
+        fit="contain"
+        className={classNames(`${classPrefix}-upload__card-image`, imageClassName)}
+        {...restImageProps}
+        src={file.url || file.raw}
+      />
       <div className={`${classPrefix}-upload__card-mask`}>
         <span className={`${classPrefix}-upload__card-mask-item`} onClick={(e) => e.stopPropagation()}>
           <ImageViewer
@@ -59,6 +77,7 @@ const ImageCard = (props: ImageCardUploadProps) => {
             )}
             images={displayFiles.map((t) => t.url || t.raw)}
             defaultIndex={index}
+            {...props.imageViewerProps}
           />
         </span>
         {!disabled && (
@@ -101,6 +120,14 @@ const ImageCard = (props: ImageCardUploadProps) => {
     return (
       <div>
         {parseTNode(fileListDisplay, {
+          triggerUpload: props.triggerUpload,
+          uploadFiles: props.uploadFiles,
+          cancelUpload: props.cancelUpload,
+          onPreview: props.onPreview,
+          onRemove: props.onRemove,
+          toUploadFiles: props.toUploadFiles,
+          sizeOverLimitMessage: props.sizeOverLimitMessage,
+          locale: props.locale,
           files: displayFiles,
         })}
       </div>
@@ -120,6 +147,7 @@ const ImageCard = (props: ImageCardUploadProps) => {
               {file.status === 'fail' && renderFailFile(file, index, loadCard)}
               {!['progress', 'fail'].includes(file.status) && renderMainContent(file, index)}
               {fileName &&
+                props.showImageFileName &&
                 (file.url ? (
                   <Link href={file.url} className={fileNameClassName} target="_blank" hover="color" size="small">
                     {fileName}
@@ -133,10 +161,19 @@ const ImageCard = (props: ImageCardUploadProps) => {
         {showTrigger && (
           <li className={cardItemClasses} onClick={props.triggerUpload}>
             <div
-              className={`${classPrefix}-upload__image-add ${classPrefix}-upload__card-container ${classPrefix}-upload__card-box`}
+              className={classNames([
+                `${classPrefix}-upload__image-add`,
+                `${classPrefix}-upload__card-container`,
+                `${classPrefix}-upload__card-box`,
+                {
+                  [`${classPrefix}-is-disabled`]: props.disabled,
+                },
+              ])}
             >
               <AddIcon />
-              <p className={`${classPrefix}-size-s`}>{locale?.triggerUploadText?.image}</p>
+              <p className={classNames([`${classPrefix}-size-s`, `${classPrefix}-upload__add-text`])}>
+                {locale?.triggerUploadText?.image}
+              </p>
             </div>
           </li>
         )}

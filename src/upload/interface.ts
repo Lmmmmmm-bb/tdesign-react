@@ -1,7 +1,8 @@
 import { MouseEvent, ReactNode } from 'react';
 import { StyledProps } from '../common';
-import { TdUploadProps, UploadFile, UploadRemoveContext } from './type';
+import { TdUploadProps, UploadFile, UploadInstanceFunctions, UploadRemoveContext } from './type';
 import { GlobalConfigProvider } from '../config-provider/type';
+import { ImageViewerProps } from '../image-viewer';
 
 export interface CommonDisplayFileProps {
   accept: string;
@@ -24,15 +25,14 @@ export interface CommonDisplayFileProps {
   showUploadProgress?: boolean;
   children?: ReactNode;
   fileListDisplay?: TdUploadProps['fileListDisplay'];
+  imageViewerProps?: ImageViewerProps;
   onRemove?: (p: UploadRemoveContext) => void;
 }
 
 export interface UploadProps<T extends UploadFile = UploadFile> extends TdUploadProps<T>, StyledProps {}
 
-export interface UploadRef {
+export interface UploadRef extends UploadInstanceFunctions {
   upload: HTMLInputElement;
   uploading: boolean;
-  triggerUpload: () => void;
-  uploadFiles: (files?: UploadFile[]) => void;
   cancelUpload: (context?: { file?: UploadFile; e?: MouseEvent<HTMLElement> }) => void;
 }

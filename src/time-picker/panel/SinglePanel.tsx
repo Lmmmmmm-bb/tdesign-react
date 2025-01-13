@@ -18,15 +18,8 @@ import range from 'lodash/range';
 import useConfig from '../../hooks/useConfig';
 import noop from '../../_util/noop';
 import { useTimePickerTextConfig } from '../hooks/useTimePickerTextConfig';
-import {
-  AM,
-  PM,
-  EPickerCols,
-  TIME_FORMAT,
-  MERIDIEM_LIST,
-  TWELVE_HOUR_FORMAT,
-} from '../../_common/js/time-picker/const';
-import { closestLookup } from '../../_common/js/time-picker/utils';
+import { AM, PM, EPickerCols, MERIDIEM_LIST, TWELVE_HOUR_FORMAT } from '../../_common/js/time-picker/const';
+import { closestLookup, getPickerCols } from '../../_common/js/time-picker/utils';
 
 import { TdTimePickerProps, TimeRangePickerPartial } from '../type';
 import useDebounce from '../../hooks/useDebounce';
@@ -80,7 +73,7 @@ const SinglePanel: FC<SinglePanelProps> = (props) => {
   const maskRef = useRef(null);
 
   const dayjsValue = useMemo(() => {
-    const isStepsSet = !!steps.filter((v) => v > 1).length;
+    const isStepsSet = !!steps.filter((v) => Number(v) > 1).length;
 
     if (value) return dayjs(value, format);
 
@@ -94,19 +87,7 @@ const SinglePanel: FC<SinglePanelProps> = (props) => {
   }, [cols]);
 
   useEffect(() => {
-    const match = format.match(TIME_FORMAT);
-    const [, startCol, hourCol, minuteCol, secondCol, milliSecondCol, endCol] = match;
-    const { meridiem, hour, minute, second, milliSecond } = EPickerCols;
-
-    const renderCol = [
-      startCol && meridiem,
-      hourCol && hour,
-      minuteCol && minute,
-      secondCol && second,
-      milliSecondCol && milliSecond,
-      endCol && meridiem,
-    ].filter((v) => !!v);
-
+    const renderCol = getPickerCols(format);
     setCols(renderCol);
   }, [format]);
 
@@ -184,7 +165,7 @@ const SinglePanel: FC<SinglePanelProps> = (props) => {
     (col: EPickerCols, time: number | string) => {
       if (col === EPickerCols.hour && /[h]{1}/.test(format))
         // eslint-disable-next-line no-param-reassign
-        (time as number) %= 12; // 一定是数字，直接 cast
+        time = (time as number) % 12; // 一定是数字，直接 cast
 
       const itemIdx = getColList(col).indexOf(padStart(String(time), 2, '0'));
       const { offsetHeight, margin } = getItemHeight();
@@ -292,7 +273,7 @@ const SinglePanel: FC<SinglePanelProps> = (props) => {
   const updateTimeScrollPos = useCallback(
     (isAutoScroll = false) => {
       const behavior = value && !isAutoScroll ? 'smooth' : 'auto';
-      const isStepsSet = !!steps.filter((v) => v > 1).length;
+      const isStepsSet = !!steps.filter((v) => Number(v) > 1).length;
 
       cols.forEach((col: EPickerCols, idx: number) => {
         if (!isStepsSet || (isStepsSet && value)) {

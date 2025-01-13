@@ -63,6 +63,9 @@ const AutoComplete = forwardRef<AutoCompleteRef, AutoCompleteProps>((originalPro
   })();
 
   const onInputChange: TdInputProps['onChange'] = (value, context) => {
+    if (!popupVisible) {
+      setPopupVisible(true);
+    }
     setTValue(value, context);
   };
 
@@ -124,6 +127,7 @@ const AutoComplete = forwardRef<AutoCompleteRef, AutoCompleteProps>((originalPro
       disabled={props.disabled}
       clearable={props.clearable}
       autofocus={props.autofocus}
+      borderless={props.borderless}
       onClear={props.onClear}
       onChange={onInputChange}
       onFocus={onInnerFocus}
@@ -147,13 +151,14 @@ const AutoComplete = forwardRef<AutoCompleteRef, AutoCompleteProps>((originalPro
       highlightKeyword={props.highlightKeyword}
       filterable={props.filterable}
       filter={props.filter}
+      empty={props.empty}
     />
   );
   const topContent = props.panelTopContent;
   const bottomContent = props.panelBottomContent;
   const panelContent =
     topContent || listContent || bottomContent ? (
-      <div className={`${classPrefix}-autocomplete__panel`}>
+      <div className={`${classPrefix}-auto-complete__panel`}>
         {topContent}
         {listContent}
         {bottomContent}

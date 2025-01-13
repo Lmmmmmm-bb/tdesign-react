@@ -8,6 +8,7 @@ import { CommonClassNameType } from '../hooks/useCommonClassName';
 import { AutoCompleteOptionObj, TdAutoCompleteProps } from './type';
 import HighlightOption from './HighlightOption';
 import { on, off } from '../_util/dom';
+import { useLocaleReceiver } from '../locale/LocalReceiver';
 
 export interface OptionsListProps {
   sizeClassNames: CommonClassNameType['sizeClassNames'];
@@ -18,7 +19,8 @@ export interface OptionsListProps {
   highlightKeyword: boolean;
   filterable: boolean;
   filter: TdAutoCompleteProps['filter'];
-  onSelect?: (keyword: string, context: { e: MouseEvent<HTMLLIElement> | KeyboardEvent | any }) => void;
+  empty: TdAutoCompleteProps['empty'];
+  onSelect: (keyword: string, context: { e: MouseEvent<HTMLLIElement> | KeyboardEvent | any }) => void;
 }
 
 export interface OptionsListRef {
@@ -27,10 +29,12 @@ export interface OptionsListRef {
 }
 
 const OptionsList = forwardRef<OptionsListRef, OptionsListProps>((props: OptionsListProps, ref) => {
-  const { value, onSelect, popupVisible } = props;
+  const { value, popupVisible, onSelect } = props;
   const { classPrefix } = useConfig();
   const [active, setActive] = useState('');
   const activeIndexRef = useRef(-1);
+
+  const [global] = useLocaleReceiver('autoComplete');
 
   const classes = `${classPrefix}-select__list`;
   const optionClasses = [
@@ -81,13 +85,19 @@ const OptionsList = forwardRef<OptionsListRef, OptionsListProps>((props: Options
     }
     const keyword = liNode.getAttribute('title');
     setActive(keyword);
-    onSelect?.(keyword, { e });
+    onSelect(keyword, { e });
   };
 
   // 键盘事件，上下选择
   const onKeyInnerPress = (e: KeyboardEvent) => {
     if (e.code === 'Enter' || e.key === 'Enter') {
-      onSelect?.(tOptions[activeIndexRef.current].text, { e });
+      const currentIndex = activeIndexRef.current;
+
+      if (currentIndex === -1) {
+        return;
+      }
+
+      onSelect(tOptions[activeIndexRef.current].text, { e });
     } else {
       const index = activeIndexRef.current;
       let newIndex;
@@ -135,7 +145,9 @@ const OptionsList = forwardRef<OptionsListRef, OptionsListProps>((props: Options
     activeIndexRef.current = tOptions.findIndex((item) => item.text === active);
   }, [active, tOptions]);
 
-  if (!tOptions.length) return null;
+  if (!tOptions.length) {
+    return <div className={`${classPrefix}-auto-complete__panel--empty`}>{props.empty || global.empty}</div>;
+  }
   return (
     <ul className={classes}>
       {tOptions.map((item) => {
